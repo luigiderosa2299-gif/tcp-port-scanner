@@ -31,6 +31,29 @@ Estratto della cattura durante una scansione `--start 1 --end 1024`:
 
 Il pacchetto SYN verso la porta **22** (visibile nell'estratto) coincide esattamente con la porta che lo script riporta come aperta — conferma diretta, a livello di pacchetto di rete, che il risultato riportato dallo script corrisponde a un vero tentativo di connessione TCP e non a un valore inventato o cache.
 
-## Conclusione
+## Conclusione (V1 — scanner sequenziale)
 
 La sequenza di porte di destinazione osservata nella cattura (1, 2, 3, 4, ... in ordine, senza salti) corrisponde esattamente all'intervallo richiesto a riga di comando (`range(args.start, args.end)`), confermando che lo scanner tenta sistematicamente ogni porta dell'intervallo dichiarato, senza eccezioni silenziose.
+
+## Verifica del multithreading (V2)
+
+Dopo l'introduzione di `ThreadPoolExecutor` (100 worker in parallelo), la stessa cattura di pacchetti è stata ripetuta per confermare empiricamente che le connessioni vengono davvero aperte in parallelo e non più in sequenza.
+
+Estratto della cattura durante una scansione multithread:
+
+```
+09:02:05.291780 IP 192.168.1.196.59806 > 192.168.1.95.1: Flags [S], ...
+09:02:05.291781 IP 192.168.1.196.59807 > 192.168.1.95.2: Flags [S], ...
+09:02:05.291781 IP 192.168.1.196.59808 > 192.168.1.95.3: Flags [S], ...
+09:02:05.291781 IP 192.168.1.196.59813 > 192.168.1.95.9: Flags [S], ...
+09:02:05.292728 IP 192.168.1.196.59814 > 192.168.1.95.8: Flags [S], ...
+09:02:05.293037 IP 192.168.1.196.59828 > 192.168.1.95.24: Flags [S], ...
+09:02:05.293037 IP 192.168.1.196.59829 > 192.168.1.95.23: Flags [S], ...
+```
+
+Due evidenze dirette di esecuzione realmente parallela, non solo di output corretto:
+
+1. **Pacchetti con timestamp identici fino al microsecondo** (es. le porte 2, 3 e 9 condividono `09:02:05.291781`) — impossibile con un ciclo sequenziale, dove ogni connessione viene aperta solo dopo che la precedente è terminata.
+2. **Porte di destinazione fuori ordine** — la porta **9 arriva prima della 8**, la **24 prima della 23**: segno che più thread stanno vincendo la "gara" per aprire la connessione in ordine imprevedibile, invece del rigoroso 1-2-3-4... osservato nella cattura V1 sequenziale sopra.
+
+Questa evidenza conferma che il multithreading introdotto in V2 esegue realmente connessioni concorrenti, non solo un miglioramento percepito nei tempi di esecuzione.

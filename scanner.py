@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 import socket
 import argparse
 
@@ -39,7 +40,11 @@ def scan_port(host, port, timeout=1):
         return False, None
 
 
-for porta in range(args.start, args.end):
+def controlla_porta(porta):
     aperta, banner = scan_port(args.host, porta)
     if aperta:
         print(f"Porta {porta} aperta - Banner: {banner}")
+
+
+with ThreadPoolExecutor(max_workers=100) as executor:
+    executor.map(controlla_porta, range(args.start, args.end))

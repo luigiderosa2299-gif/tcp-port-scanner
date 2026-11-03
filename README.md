@@ -34,19 +34,23 @@ Date: Tue, 03 Nov 2026 00:15:06 GMT
 Content-type: text/html; charset=utf-8
 ```
 
+## V2 — Multithreading
+
+La scansione ora distribuisce i controlli di porta su un pool di 100 thread paralleli (`concurrent.futures.ThreadPoolExecutor`), invece di testare le porte una alla volta in sequenza. Comportamento verificato empiricamente catturando il traffico generato: con il multithreading attivo, i pacchetti SYN mostrano timestamp identici fino al microsecondo e arrivano fuori dall'ordine numerico delle porte — entrambi segni inequivocabili di connessioni realmente concorrenti, non solo di un output più rapido.
+
 ## Verifica con cattura di pacchetti
 
-Il comportamento dello scanner è stato validato catturando il traffico di rete reale generato durante l'esecuzione, non solo osservando l'output — vedi [`docs/packet-capture-verification.md`](docs/packet-capture-verification.md) per l'evidenza completa (cattura tcpdump che conferma un pacchetto SYN per ogni porta effettivamente testata).
+Il comportamento dello scanner è stato validato catturando il traffico di rete reale generato durante l'esecuzione, non solo osservando l'output — vedi [`docs/packet-capture-verification.md`](docs/packet-capture-verification.md) per l'evidenza completa (cattura tcpdump V1 che conferma un pacchetto SYN per ogni porta testata, e cattura V2 che conferma l'esecuzione realmente parallela introdotta dal multithreading).
 
 ## Stack tecnico
 
-- **Python 3** — nessuna libreria esterna, solo moduli standard (`socket`, `argparse`)
+- **Python 3** — nessuna libreria esterna oltre alla standard library (`socket`, `argparse`, `concurrent.futures`)
 - **socket** — comunicazione di rete TCP a basso livello
 - **argparse** — interfaccia a riga di comando (host e intervallo di porte come parametri, non valori fissi nel codice)
+- **concurrent.futures.ThreadPoolExecutor** — esecuzione parallela dei controlli di porta
 
 ## Possibili estensioni future
 
-- **Multithreading** (`concurrent.futures.ThreadPoolExecutor`) per velocizzare la scansione eseguendo più controlli di porta in parallelo, utile soprattutto contro bersagli remoti con latenza più alta o porte filtrate che vanno in timeout.
 - Banner grabbing dedicato per altri protocolli request-first (es. HTTPS via TLS, SMTP con comando EHLO esplicito).
 
 ## Nota etica
